@@ -22,7 +22,6 @@ public:
 		vec3 second_term = p2 * ((3 * t_cubed) - (6 * t_squared) + (3 * t));
 		vec3 third_term = p3 * ((-3 * t_cubed) + (3 * t_squared));
 		vec3 fourth_term = p4 * (t_cubed);
-		vec3 point = first_term + second_term + third_term + fourth_term;
 		return first_term + second_term + third_term + fourth_term;	// point on curve at t
 	}
 
@@ -101,9 +100,7 @@ public:
 			closest_p1_p2 : closest_p3_p4;
 		// return closest point if within 10 pixels of mouse
 		printf("minDist = %f\n", minDist);
-		return minDist <= 500 ? closestPoint : NULL;	
-		// Note: because of the scaling, 10 pixels squared didn't seem to easily grab a point;
-		//		 increased from 100 (10^2) to 500 for ease of usability
+		return minDist <= 100 ? closestPoint : NULL;
 	}
 };
 
@@ -142,7 +139,7 @@ bool 	cameraDown = false;
 Mover	ptMover;
 
 void MouseButton(int butn, int state, int x, int y) {
-	y = winHeight - y;						// invert y for upward-increasing screen space
+	y = glutGet(GLUT_WINDOW_HEIGHT) - y;						// invert y for upward-increasing screen space
 	if (state == GLUT_UP) {
 		if (cameraDown)
 			rotOld = rotNew;				// reset rotation accumulation
@@ -168,7 +165,7 @@ void MouseButton(int butn, int state, int x, int y) {
 }
 
 void MouseDrag(int x, int y) {
-	y = winHeight - y;
+	y = glutGet(GLUT_WINDOW_HEIGHT) - y;
 	if (ptMover.point)
 		ptMover.Drag(x, y, view);
 	else if (cameraDown)

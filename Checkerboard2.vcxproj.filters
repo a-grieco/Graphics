@@ -41,10 +41,13 @@
     <ClCompile Include="MeshIO.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BezierCurve.cpp">
+    <ClCompile Include="UI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="UI.cpp">
+    <ClCompile Include="BezierCurve_Bonus2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="BezierCurve.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

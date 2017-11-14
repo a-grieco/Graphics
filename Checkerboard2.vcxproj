@@ -162,6 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BezierCurve.cpp" />
+    <ClCompile Include="BezierCurve_Bonus2.cpp" />
     <ClCompile Include="Lib\GLSL.cpp" />
     <ClCompile Include="MeshIO.cpp" />
     <ClCompile Include="stdafx.cpp">
