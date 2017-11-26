@@ -350,7 +350,7 @@ bool ReadAsciiObj(char          *filename,
 
 // texture
 
-char *ReadTexture(const char *filename, int &width, int &height) {
+char *ReadTexture(const char *filename, int &width, int &height, int &bitsPerPixel) {
 	// open targa file, read header
 	FILE *in = fopen(filename, "rb");
 	char *pixels = NULL;
@@ -360,8 +360,9 @@ char *ReadTexture(const char *filename, int &width, int &height) {
 		// allocate, read pixels
 		width = tgaHeader[6];
 		height = tgaHeader[7];
-		int bitsPerPixel = tgaHeader[8];
-		int bytesPerPixel = bitsPerPixel/8, bytesPerImage = width*height*bytesPerPixel;
+		bitsPerPixel = tgaHeader[8];
+		int bytesPerPixel = bitsPerPixel/8;
+		int bytesPerImage = width*height*bytesPerPixel;
 		if (bytesPerPixel == 3) {
 			pixels = new char[bytesPerImage];
 			fread(pixels, bytesPerImage, 1, in);
@@ -371,4 +372,35 @@ char *ReadTexture(const char *filename, int &width, int &height) {
 		fclose(in);
 	}
 	return pixels;
+}
+
+GLuint SetHeightfield(const char *filename, int whichTexture) {
+	GLuint textureId = 0;
+	glGenTextures(1, &textureId);
+	// open targa file, read header, store as GL_TEXTURE2
+	int width, height, bitsPerPixel;
+	char *pixels = ReadTexture(filename, width, height, bitsPerPixel);
+	if (!pixels) {
+		printf("No texture!\n");
+		return 0;
+	}
+	if (bitsPerPixel == 24) {
+		char *tmpPixels = new char[width*height];
+		// convert to luminance
+		for (int i = 0; i < width*height; i++) {
+			char *p = pixels+3*i;
+			tmpPixels[i] = (int) (.21*(double)p[2]+.72*(double)p[1]+.07*(double)p[0]);
+		}
+		delete [] pixels;
+		pixels = tmpPixels;
+	}
+	// set and bind active texture corresponding with textureIds[1]
+	glActiveTexture(whichTexture == 1? GL_TEXTURE2 : GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, textureId);
+	// allocate GPU texture buffer; copy, free pixels
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // in case width not multiple of 4
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED, GL_UNSIGNED_BYTE, pixels);
+	delete [] pixels;
+	glGenerateMipmap(GL_TEXTURE_2D);
+	return textureId;
 }

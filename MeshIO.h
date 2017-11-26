@@ -45,6 +45,8 @@ void SetVertexNormals(vector<vec3> &points, vector<int3> &triangles, vector<vec3
 
 // Texture
 
-char *ReadTexture(const char *filename, int &width, int &height);
+char *ReadTexture(const char *filename, int &width, int &height, int &bitsPerPixel);
+
+GLuint SetHeightfield(const char *filename, int whichTexture = 0);
 
 #endif

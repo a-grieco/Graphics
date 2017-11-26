@@ -44,10 +44,7 @@
     <ClCompile Include="UI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="BezierCurve_Bonus2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="BezierCurve.cpp">
+    <ClCompile Include="MeshTessTexture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -161,10 +161,9 @@
     <ClInclude Include="UI.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BezierCurve.cpp" />
-    <ClCompile Include="BezierCurve_Bonus2.cpp" />
     <ClCompile Include="Lib\GLSL.cpp" />
     <ClCompile Include="MeshIO.cpp" />
+    <ClCompile Include="MeshTessTexture.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

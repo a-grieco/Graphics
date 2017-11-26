@@ -7,16 +7,15 @@
 // Misc
 
 vec2 ScreenPoint(vec3 &p, mat4 &m) {
-	int width = glutGet(GLUT_WINDOW_WIDTH), height = glutGet(GLUT_WINDOW_HEIGHT);
 	vec4 xp = m*vec4(p, 1);
- 	return (vec2((xp.x/xp.w)+1)*.5f*(float)width, ((xp.y/xp.w)+1)*.5f*(float)height);
+ 	return vec2(
+		((xp.x/xp.w)+1)*.5f*(float) glutGet(GLUT_WINDOW_WIDTH),
+		((xp.y/xp.w)+1)*.5f*(float) glutGet(GLUT_WINDOW_HEIGHT));
 }
 
 float ScreenDistSq(int x, int y, vec3 p, mat4 m) {
-	vec4 xp = m*vec4(p, 1);
- 	float xscreen = ((xp.x/xp.w)+1)*.5f*(float) glutGet(GLUT_WINDOW_WIDTH);
-	float yscreen = ((xp.y/xp.w)+1)*.5f*(float) glutGet(GLUT_WINDOW_HEIGHT);
-	float dx = x-xscreen, dy = y-yscreen;
+	vec2 screen = ScreenPoint(p, m);
+	float dx = x-screen.x, dy = y-screen.y;
     return dx*dx+dy*dy;
 }
 
@@ -48,6 +47,19 @@ mat4 ScreenMode() {
 	mat4 scale = Scale(2.f / (float) width, 2.f / (float) height, 1.);
 	mat4 tran = Translate(-1, -1, 0);
 	return tran*scale;
+}
+
+bool IsVisible(vec3 &p, mat4 &fullview, vec2 *screenA) {
+	float winWidth = (float) glutGet(GLUT_WINDOW_WIDTH), winHeight = (float) glutGet(GLUT_WINDOW_HEIGHT);
+	vec4 xp = fullview*vec4(p, 1);
+	vec2 clip(xp.x/xp.w, xp.y/xp.w);	// clip space, +/1
+	vec2 screen(((float) winWidth/2.f)*(1.f+clip.x), ((float) winHeight/2.f)*(1.f+clip.y));
+	if (screenA)
+		*screenA = screen;
+	float z = xp.z/xp.w, zScreen;
+	glReadPixels((int)screen.x, (int)screen.y, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &zScreen);
+	zScreen = 2*zScreen-1; // seems to work (clip range +/-1 but zbuffer range 0-1)
+	return z < zScreen;
 }
 
 // Text
@@ -129,7 +141,7 @@ bool KeyDown(int c) { return (GetKeyState(c) & shortMSB) != 0; }
 
 // Draw
 
-char *vertexShader = "\
+static char *vertexShader = "\
 	#version 130								\n\
 	in vec3 point;								\n\
     uniform mat4 view;							\n\
@@ -138,7 +150,7 @@ char *vertexShader = "\
 		gl_Position = view*vec4(point, 1);		\n\
 	}											\n";
 
-char *pixelShader = "\
+static char *pixelShader = "\
 	#version 130								\n\
 	uniform float opacity = 1;					\n\
 	uniform vec3 color = vec3(1);				\n\
@@ -149,7 +161,7 @@ char *pixelShader = "\
 	}											\n";
 
 GLuint drawShader = 0, drawBuffer = 0;
-vec3 blk(0), wht(1), offWht(.95f), ltGry(.9f), mdGry(.6f), dkGry(.4f);
+static vec3 blk(0), wht(1), offWht(.95f), ltGry(.9f), mdGry(.6f), dkGry(.4f);
 
 void CheckDrawBuffer() {
 	if (!drawBuffer) {
@@ -228,6 +240,50 @@ void Line(int x1, int y1, int x2, int y2, vec3 &color, float opacity) {
 	Line(vec3((float) x1, (float) y1, 0), vec3((float) x2, (float) y2, 0), color, opacity);
 }
 
+// Misc
+
+void Line(float x1, float y1, float x2, float y2, vec3 &color, float opacity) {
+	Line(vec3(x1, y1, 0), vec3(x2, y2, 0), color, opacity);
+}
+
+vec2 UnitPoint(float radians) { return vec2(cos(radians), sin(radians)); }
+
+void Circle(vec2 &p, float radius, vec3 &color) {
+	vec2 p1 = p+radius*UnitPoint(11.f/12.f);
+    for (int i = 0; i < 12; i++) {
+		float a1 = (float) i / 12, a2 = (float) (i+1) / 12;
+		vec2 p1 = p+radius*UnitPoint(2*3.1415f*a1);
+		vec2 p2 = p+radius*UnitPoint(2*3.1415f*a2);
+		Line(p1.x, p1.y, p2.x, p2.y, color);
+		p1 = p2;
+    }
+}
+
+void Crosshairs(vec2 &s, float radius, vec3 &color) {
+    float innerRad = .4f*radius;
+	Circle(s, .5f, color);
+    Circle(s, 2*innerRad, color);
+    Line(s.x-innerRad, s.y, s.x-radius, s.y, color);
+    Line(s.x+innerRad, s.y, s.x+radius, s.y, color);
+    Line(s.x, s.y-innerRad, s.x, s.y-radius, color);
+    Line(s.x, s.y+innerRad, s.x, s.y+radius, color);
+}
+
+void Sun(vec2 &p, vec3 *flashColor) {
+	vec3 c(p.x, p.y, 0);
+	vec3 yel(1, 1, 0), red(1, 0, 0), *col = flashColor? flashColor : &red;
+	// wish small yellow on larger red disk regardless of z-buffer
+    Disk(c, 8, yel);
+    Disk(c, 12, *col);
+    Disk(c, 8, yel);
+	glLineWidth(1.);
+    for (int r = 0, nRays = 16; r < nRays; r++) {
+        float a = 2*3.141592f*(float)r/(nRays-1), dx = cos(a), dy = sin(a);
+        float len = 11*(r%2? 1.8f : 2.5f);
+        Line(vec3(p.x+9*dx, p.y+9*dy, 0), vec3(p.x+len*dx, p.y+len*dy, 0), *col);
+    }
+}
+
 // Quad
 
 void Quad(vec3 &p1, vec3 &p2, vec3 &p3, vec3 &p4, vec3 &color, float opacity) {
@@ -236,8 +292,8 @@ void Quad(vec3 &p1, vec3 &p2, vec3 &p3, vec3 &p4, vec3 &color, float opacity) {
 	CheckDrawBuffer();
     glBindBuffer(GL_ARRAY_BUFFER, drawBuffer);
     glBufferSubData(GL_ARRAY_BUFFER, 0, 4*sizeof(vec3), points);
-	GLSL::VertexAttribPointer(drawShader, "position", 3, GL_FLOAT, GL_FALSE, 0, (void *) 0);
-	GLSL::SetUniform(drawShader, "color", opacity);
+	GLSL::VertexAttribPointer(drawShader, "point", 3, GL_FLOAT, GL_FALSE, 0, (void *) 0);
+	GLSL::SetUniform(drawShader, "color", color);
 	GLSL::SetUniform(drawShader, "opacity", opacity);
 	glDrawArrays(GL_QUADS, 0, 4);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -263,25 +319,23 @@ void Rectangle(int x, int y, int w, int h, vec3 &color, bool solid, float opacit
 
 Button::Button() { InitRectangle(0, 0, 0, 0, NULL); }
 
-Button::Button(int x, int y, int w, int h, char *name, float *bgrndCol, float *txtCol) {
+Button::Button(int x, int y, int w, int h, char *name, vec3 *bgrndCol, vec3 *txtCol) {
 	InitRectangle(x, y, w, h, name, bgrndCol, txtCol);
 }
 
-Button::Button(int x, int y, int size, char *name, bool *value, float *txtCol) {
+Button::Button(int x, int y, int size, char *name, bool *value, vec3 *txtCol) {
 	InitCheckbox(x, y, size, name, value, txtCol);
 }
 
-void InitButton(Button *b, char *name, float *bgrndCol, float *txtCol) {
-	for (int i = 0; i < 3; i++) {
-		b->backgroundColor[i] = bgrndCol? bgrndCol[i] : 1;
-		b->textColor[i] = txtCol? txtCol[i] : 0;
-	}
+void InitButton(Button *b, char *name, vec3 *bgrndCol, vec3 *txtCol) {
+	b->backgroundColor = bgrndCol? *bgrndCol : vec3(1);
+	b->textColor = txtCol? *txtCol : vec3(0);
 	b->textWidth = -1;
 	b->font = GLUT_BITMAP_9_BY_15;
 	name? b->name = string(name) : void();
 }
 
-void Button::InitCheckbox(int x, int y, int size, char *name, bool *valueA, float *txtCol) {
+void Button::InitCheckbox(int x, int y, int size, char *name, bool *valueA, vec3 *txtCol) {
 	this->x = x;
 	this->y = y;
 	w = h = size;
@@ -291,7 +345,7 @@ void Button::InitCheckbox(int x, int y, int size, char *name, bool *valueA, floa
 	InitButton(this, name, NULL, txtCol);
 }
 
-void Button::InitRectangle(int ax, int ay, int aw, int ah, char *name, float *bgrndCol, float *txtCol) {
+void Button::InitRectangle(int ax, int ay, int aw, int ah, char *name, vec3 *bgrndCol, vec3 *txtCol) {
 	textWidth = -1;
 	font = GLUT_BITMAP_9_BY_15;
 	x = ax;
@@ -303,15 +357,15 @@ void Button::InitRectangle(int ax, int ay, int aw, int ah, char *name, float *bg
 	InitButton(this, name, bgrndCol, txtCol);
 }
 
-void Button::CenterText(int x, int y, char *text, int buttonWidth, float *color) {
+void Button::CenterText(int x, int y, char *text, int buttonWidth, vec3 &color) {
 	int size = 9; // FontSize(GLUT_BITMAP_9_BY_15);
 	int xoff = (buttonWidth-size*strlen(text))/2;
-	PutString(x+xoff, y, text, vec3(color[0], color[1], color[2]));
+	PutString(x+xoff, y, text, color);
 }
 
-void Button::SetTextColor(float *col) { memcpy(textColor, col, 3*sizeof(float)); }
+void Button::SetTextColor(vec3 &col) { textColor = col; } // memcpy(textColor, col, 3*sizeof(float)); }
 
-void Button::ShowName(char *name, float *color) {
+void Button::ShowName(char *name, vec3 &col) {
 	float yDotOffset = font == GLUT_BITMAP_TIMES_ROMAN_24? 6.5f : 4.f;
 	float yRectOffset = font == GLUT_BITMAP_TIMES_ROMAN_24? 4.f : 6.f;
 	int xpos = type == B_Rectangle? x+5 : x+w;
@@ -319,7 +373,6 @@ void Button::ShowName(char *name, float *color) {
 	int nchars = strlen(name);
 	int size = 9; // FontSize(font);
 	bool singleLine = size*nchars <= w;
-	vec3 col(color[0], color[1], color[2]);
 	if (singleLine && h > 30)
 		ypos += (h-20)/2;
 	if (type == B_Checkbox) {
@@ -339,7 +392,7 @@ void Button::ShowName(char *name, float *color) {
 			PutString(xpos, ypos, name, col);
 	}
 	else if (type == B_Rectangle && singleLine)
-	    CenterText(x, ypos, name, w, color);
+	    CenterText(x, ypos, name, w, col);
 	else {
 		char *sp = strchr(name, ' '), buf[100];
 		int len = sp? sp-name : w/size;
@@ -347,16 +400,16 @@ void Button::ShowName(char *name, float *color) {
 		buf[len] = 0;
 		if (sp != NULL) {
 			// multi-line
-			CenterText(x, ypos+15, buf, w, color);
+			CenterText(x, ypos+15, buf, w, col);
 			if (this->h >= 30) {
 				char *s = name+len;
 				while (*s == ' ')
 					s++;
-				CenterText(x, ypos, s, w, color);
+				CenterText(x, ypos, s, w, col);
 			}
 		}
 		else
-			CenterText(x, ypos+45, name, w, color);
+			CenterText(x, ypos+45, name, w, col);
 	}
 	if (textWidth < 0)
 		textWidth = size*strlen(name);
@@ -424,9 +477,9 @@ bool Button::Hit(int ax, int ay) {
 	return false;
 }
 
-bool Button::UpHit(int ax, int ay) {
+bool Button::UpHit(int ax, int ay, int state) {
 	bool hit = Hit(ax, ay);
-	if (hit && type == B_Checkbox && value != NULL)
+	if (hit && type == B_Checkbox && state == GLUT_UP && value != NULL)
 		*value = !*value;
 	return hit;
 }
@@ -437,16 +490,16 @@ Slider::Slider() {
 	x = y = size = 0;
 	color[0] = color[1] = color[2] = 0;
 	winW = -1;
-	Init(0, 0, 80, 0, 1, .5f, true, NULL, color);
+	Init(0, 0, 80, 0, 1, .5f, true, NULL, &color);
 }
 
-Slider::Slider(int x, int y, int size, float min, float max, float init, bool v, char *nameA, float *col) {
+Slider::Slider(int x, int y, int size, float min, float max, float init, bool v, char *nameA, vec3 *col) {
 	Init(x, y, size, min, max, init, v, nameA, col);
 }
 
 int Round(float f)  { return (int)(f < 0.? ceil(f-.5f) : floor(f+.5f)); }
 
-void Slider::Init(int x, int y, int size, float min, float max, float init, bool v, char *nameA, float *col) {
+void Slider::Init(int x, int y, int size, float min, float max, float init, bool v, char *nameA, vec3 *col) {
 		this->x = x;
 		this->y = y;
 		this->size = size;
@@ -477,8 +530,8 @@ void Slider::SetRange(float min, float max, float init) {
 }	
 
 void Slider::Draw(char *nameOverride, vec3 *sliderColor) {
-	vec3 *sCol = sliderColor? sliderColor : &color;
-	glLineWidth(2);
+	//vec3 *sCol = sliderColor? sliderColor : &color;
+	//glLineWidth(2);
 	int iloc = (int) loc;
 	float grays[] = {160, 105, 227, 255};
 	if (vertical) {

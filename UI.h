@@ -9,7 +9,7 @@
 
 using std::string;
 
-	// Misc
+// Screen
 
 vec2 ScreenPoint(vec3 &p, mat4 &m);
 	// return 2D screen location of p
@@ -23,6 +23,11 @@ void ScreenLine(float xscreen, float yscreen, mat4 &modelview, mat4 &persp, floa
 
 mat4 ScreenMode();
 	// matrix to transform to pixel space
+
+bool IsVisible(vec3 &p, mat4 &view, vec2 *screen = NULL);
+	// if the depth test is enabled, is point p visible?
+	// if non-null, set screen location (in pixels) of transformed p
+	// view should include modelView and persp/ortho
 
 // Text
 
@@ -58,9 +63,18 @@ void Line(vec3 &p1, vec3 &p2, vec3 &color, float opacity = 1, float width = 1, b
 
 void Line(int x1, int y1, int x2, int y2, vec3 &color, float opacity = 1, float width = 1);
 
+void Line(float x1, float y1, float x2, float y2, vec3 &color, float opacity = 1);
+
 void Quad(vec3 &pnt1, vec3 &pnt2, vec3 &pnt3, vec3 &pnt4, vec3 &color, float opacity = 1);
 
 void Rectangle(int x, int y, int w, int h, vec3 &color, bool solid = true, float opacity = 1);
+
+void Circle(vec2 &p, float radius, vec3 &color);
+
+void Crosshairs(vec2 &s, float radius, vec3 &color);
+
+void Sun(vec2 &s, vec3 *flashColor = NULL);
+	// draw a sun at pixel s, with optionally colored sun-rays
 
 // Pushbutton and Checkbox
 
@@ -75,14 +89,14 @@ public:
 	bool *value;
 	Button();
 	// rectangle button:
-    Button(int x, int y, int w, int h, char *name, float *backgroundColor = NULL, float *textColor = NULL);
+    Button(int x, int y, int w, int h, char *name, vec3 *backgroundColor = NULL, vec3 *textColor = NULL);
 	// checkbox:
-	Button(int x, int y, int size, char *name, bool *value = NULL, float *textColor = NULL);
-	void InitCheckbox(int x, int y, int size = 15, char *name = NULL, bool *value = NULL, float *textColor = NULL);
-	void InitRectangle(int x, int y, int w, int h, char *name, float *backgroundColor = NULL, float *textColor = NULL);
-	void CenterText(int x, int y, char *text, int buttonWidth, float *c);
-	void SetTextColor(float *col);
-	void ShowName(char *name, float *color);
+	Button(int x, int y, int size, char *name, bool *value = NULL, vec3 *textColor = NULL);
+	void InitCheckbox(int x, int y, int size = 15, char *name = NULL, bool *value = NULL, vec3 *textColor = NULL);
+	void InitRectangle(int x, int y, int w, int h, char *name, vec3 *backgroundColor = NULL, vec3 *textColor = NULL);
+	void CenterText(int x, int y, char *text, int buttonWidth, vec3 &color);
+	void SetTextColor(vec3 &col);
+	void ShowName(char *name, vec3 &color);
 	    // sets textWidth, which affects Hit
 	void Draw(vec3 *statusColor = NULL);
 	void Draw(char *name = NULL, vec3 *statusColor = NULL);
@@ -92,8 +106,8 @@ public:
 	void Highlight();
     bool Hit(int x, int y);
 		// does mouse(x,y) hit the button?
-	bool UpHit(int x, int y);
-		// as Hit, but toggle *value if hit and button is checkbox
+	bool UpHit(int x, int y, int state);
+		// as Hit, but toggle *value if hit and button is checkbox and state is GLUT_UP
 };
 
 // Slider
@@ -109,8 +123,8 @@ public:
     float min, max;
 	string name;
 	Slider();
-    Slider(int x, int y, int size, float min, float max, float init, bool vertical = true, char *name = NULL, float *color = NULL);
-    void Init(int x, int y, int size, float min, float max, float init, bool vertical = true, char *name = NULL, float *color = NULL);
+    Slider(int x, int y, int size, float min, float max, float init, bool vertical = true, char *name = NULL, vec3 *color = NULL);
+    void Init(int x, int y, int size, float min, float max, float init, bool vertical = true, char *name = NULL, vec3 *color = NULL);
 	void SetValue(float val);
 	void SetRange(float min, float max, float init);
     void Draw(char *nameOverride = NULL, vec3 *sliderColor = NULL);
